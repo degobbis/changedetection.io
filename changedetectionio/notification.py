@@ -1,4 +1,5 @@
 import apprise
+import urllib.parse
 from jinja2 import Environment, BaseLoader
 from apprise import NotifyFormat
 import json
@@ -44,6 +45,12 @@ def apprise_custom_api_call_wrapper(body, title, notify_type, *args, **kwargs):
     import requests
     url = kwargs['meta'].get('url')
 
+
+    # Try to auto-guess if it's JSON
+    headers = {}
+    if url.startswith('json'):
+        headers = {'Content-Type': 'application/json; charset=utf-8'}
+
     if url.startswith('post'):
         r = requests.post
     elif url.startswith('get'):
@@ -63,9 +70,8 @@ def apprise_custom_api_call_wrapper(body, title, notify_type, *args, **kwargs):
     url = url.replace('puts://', 'https://')
     url = url.replace('delete://', 'http://')
     url = url.replace('deletes://', 'https://')
-
-    # Try to auto-guess if it's JSON
-    headers = {}
+    url = url.replace('json://', 'http://')
+    url = url.replace('jsons://', 'https://')
     try:
         json.loads(body)
         headers = {'Content-Type': 'application/json; charset=utf-8'}
@@ -89,7 +95,7 @@ def process_notification(n_object, datastore):
         n_object['notification_format'],
         valid_notification_formats[default_notification_format],
     )
-    
+
     # https://github.com/caronc/apprise/wiki/Development_LogCapture
     # Anything higher than or equal to WARNING (which covers things like Connection errors)
     # raise it as an exception
@@ -116,6 +122,7 @@ def process_notification(n_object, datastore):
                         and not url.startswith('post') \
                         and not url.startswith('get') \
                         and not url.startswith('delete') \
+                        and not url.startswith('json') \
                         and not url.startswith('put'):
                     url += k + 'avatar_url=https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/changedetectionio/static/images/avatar-256x256.png'
 
@@ -146,6 +153,13 @@ def process_notification(n_object, datastore):
                         prefix = '?' if not '?' in url else '&'
                         url = "{}{}format={}".format(url, prefix, n_format)
 
+                elif url.startswith('json'):
+#                    n_title = n_body
+                    if not 'text=' in url:
+                        prefix = '?' if not '?' in url else '&'
+                        url = "{}{}:text={}".format(url, prefix, urllib.parse.quote(n_body))
+#                        print('teststring'+url)
+
                 apobj.add(url)
 
                 apobj.notify(
@@ -165,7 +179,7 @@ def process_notification(n_object, datastore):
                 log_value = logs.getvalue()
                 if log_value and 'WARNING' in log_value or 'ERROR' in log_value:
                     raise Exception(log_value)
-                
+
                 sent_objs.append({'title': n_title,
                                   'body': n_body,
                                   'url' : url,

@@ -4,6 +4,13 @@ FROM python:3.10-slim as builder
 # See `cryptography` pin comment in requirements.txt
 ARG CRYPTOGRAPHY_DONT_BUILD_RUST=1
 
+COPY deb/libnss3_3.61-1+deb11u3_amd64.deb /libnss3_3.61-1+deb11u3_amd64.deb
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    /libnss3_3.61-1+deb11u3_amd64.deb \
+    && rm -rf /libnss3_3.61-1+deb11u3_amd64.deb
+
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     gcc \
@@ -59,6 +66,8 @@ COPY changedetectionio /app/changedetectionio
 
 # The eventlet server wrapper
 COPY changedetection.py /app/changedetection.py
+
+#RUN [ ! -d "/app" ] && mkdir /app
 
 WORKDIR /app
 
